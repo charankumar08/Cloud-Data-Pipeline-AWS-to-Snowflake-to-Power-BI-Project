@@ -1,0 +1,54 @@
+-- ============================================================
+-- PROJECT: End-to-End Crop Data Pipeline (S3 to Snowflake)
+-- AUTHOR: Charan Kumar Donthula
+-- DESCRIPTION: Setting up storage integration, stages, and 
+--              automated data loading for agricultural datasets.
+-- ============================================================
+
+-- 1. SETUP STORAGE INTEGRATION
+-- Connects Snowflake to S3 securely using IAM Roles
+CREATE OR REPLACE STORAGE INTEGRATION PBI_Integration
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::<AWS_ACCOUNT_ID>:role/<YOUR_ROLE_NAME>'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://powerbi.project/')
+  COMMENT = 'Integration for PowerBI project data';
+
+-- 2. DATABASE & SCHEMA CREATION
+CREATE DATABASE IF NOT EXISTS PowerBI;
+USE DATABASE PowerBI;
+CREATE SCHEMA IF NOT EXISTS PBI_Data;
+
+-- 3. TABLE STRUCTURE
+-- Defining the schema for crop and weather data
+CREATE TABLE IF NOT EXISTS PBI_Dataset (
+    Year INT,
+    Location STRING,
+    Area INT,
+    Rainfall FLOAT,
+    Temperature FLOAT,
+    Soil_type STRING,
+    Irrigation STRING,
+    Yields INT,
+    Humidity FLOAT,
+    Crops STRING,
+    Price INT,
+    Season STRING
+);
+
+-- 4. CREATE EXTERNAL STAGE
+-- Points to the S3 bucket using the storage integration
+CREATE OR REPLACE STAGE PowerBI.PBI_Data.pbi_stage
+    URL = 's3://powerbi.project'
+    STORAGE_INTEGRATION = PBI_Integration;
+
+-- 5. DATA INGESTION
+-- Copying data from S3 CSV to Snowflake Table
+COPY INTO PBI_Dataset 
+FROM @pbi_stage
+FILE_FORMAT = (TYPE=CSV FIELD_DELIMITER=',' SKIP_HEADER=1)
+ON_ERROR = 'CONTINUE';
+
+-- 6. VERIFICATION
+SELECT * FROM PBI_Dataset LIMIT 10;
